@@ -16,20 +16,22 @@ import random
 import itertools
 
 import SpatialKappa
-from py4j.protocol import * 
+from py4j.protocol import *
+
 
 sys.path.insert(0, "/Users/tr.sakrapee/Documents/GitHub/KaSim-Wrapper")
 import KaSimWrapper as kw
 
+
 from scipy.stats import poisson
 import numpy
 import re
-import os
+import os, sys
 import warnings
 
 FARADAY = h.FARADAY
 
-verbose = True
+verbose = False
 def report(mess):
     global verbose
     if (verbose):
@@ -79,8 +81,11 @@ def _run_kappa_continuous(states, b, dt):
                 ## _conversion factor has units of molecules mM^-1 um^-3
                 flux = b[i] * molecules_per_mM_um3 * volumes[i]
 
-                #kappa_sim.setTransitionRate('Create %s' % (s.name), flux)
-                kappa_sim.update_variable_value('Create_{0}'.format(s.name), flux)
+                # KaSim
+                kappa_sim.setTransitionRate('Create %s' % (s.name), flux)
+
+                # kappa_sim.add_transition(self, trans_name, trans_exp, trans_rate)
+                # or kappa_sim.update_variable_value(self, var_name, var_value)
                 report("Setting %s flux[%d] to b[%d]*NA*vol[%d] = %f*%f*%f = %f" % (s.name, i, i, i,  b[i], molecules_per_mM_um3, volumes[i], flux))
 
             report("PASSING MEMBRANE POTENTIAL TO KAPPA")
@@ -108,28 +113,26 @@ def _run_kappa_continuous(states, b, dt):
                     s = sptr()._species()
                     Stot0[s.name] = {}
                     for kappa_sim, i in zip(k._kappa_sims, k._indices_dict[s]):
-                        #kappa_sim.get_all_values_by_time()
-                        legend, time_series = kappa_sim.get_value_by_time(nrr.h.t, "Obs_Total_{0}".format(s.name))
-                        try:
-                            Stot0[s.name][i] = time_series[0][1]
-                            print Stot0
-                        except Exception as e:
-                            print e.message
-                            legend, time_series = kappa_sim.get_value_by_time(nrr.h.t, "Obs_Total_{0}".format(s.name))
-                        #Stot0[s.name][i] = kappa_sim.getVariable('Total %s' % (s.name))
-                        #kappa_sim.get_value_by_time()
-                        try:
-                            report("Stot0[%s][%d] = %f" % (s.name, i, Stot0[s.name][i]))
-                        except Exception as e:
-                            print e.message
+                        """ SpatialKappa """
+                        """ Stot0[s.name][i] = kappa_sim.getVariable('Total %s' % (s.name))"""
+
+                        Stot0[s.name][i] = kappa_sim.get_value("Total {0}".format(s.name))
+                        report("Stot0[%s][%d] = %f" % (s.name, i, Stot0[s.name][i]))
 
             report("RUN 1 KAPPA STEP")  
             for kappa_sim in k._kappa_sims:
-                #kappa_sim.runForTime(dt, False)
-                time = nrr.h.t+dt
-                kappa_sim.run_until_time(time)
-                #t_kappa = kappa_sim.get_time()
-                report("kappa time now %f" % (time))
+
+                #kappa_sim.run_for_time()
+
+                # Kasim
+                """ SpatialKappa """
+                """kappa_sim.runForTime(dt, False)"""
+
+                kappa_sim.run_for_time(dt)
+                t_kappa = kappa_sim.get_time()
+                """t_kappa = kappa_sim.getTime()"""
+
+                report("kappa time now %f" % (t_kappa))
 
             ## Recording total ending value of each membrane species
             for f in k._kappa_fluxes:
@@ -137,11 +140,12 @@ def _run_kappa_continuous(states, b, dt):
                 for sptr in f._sources:
                     s = sptr()._species()
                     for kappa_sim, i in zip(k._kappa_sims, k._indices_dict[s]):
-                        legend, time_series = kappa_sim.get_value_by_time(nrr.h.t,
-                                                                          "Obs_Total_{0}".format(s.name))
-                        Stot1 = time_series[0][1]
                         ## For ions, compute the current
-                        #Stot1 = kappa_sim.getVariable('Total %s' % (s.name))
+                        """ SpatialKappa """
+                        """ Stot1 = kappa_sim.getVariable('Total %s' % (s.name)) """
+
+                        Stot1 = kappa_sim.get_value('Total %s' % (s.name))
+
                         report("Stot1[%s][%d] = %f" % (s.name, i, Stot1))
                         DeltaStot = Stot1 - Stot0[s.name][i]
                         bnew = DeltaStot/(dt*molecules_per_mM_um3*volumes[i])
@@ -169,14 +173,12 @@ def _run_kappa_continuous(states, b, dt):
                 s = sptr()
                 for kappa_sim, i in zip(k._kappa_sims, k._indices_dict[s]):
                     ## Update concentration
-                    legend, time_series = kappa_sim.get_value_by_time(nrr.h.t,
-                                                                      "{0}".format(s.name))
-                    end_value = time_series[0][1]
-                    states[i] = end_value \
-                                /(molecules_per_mM_um3 * volumes[i])
+                    """ SpatialKappa """
+                    """ states[i] = kappa_sim.getVariable(s.name) \
+                                /(molecules_per_mM_um3 * volumes[i]) """
 
-                    #states[i] = kappa_sim.getVariable(s.name) \
-                    #            /(molecules_per_mM_um3 * volumes[i])
+                    states[i] = kappa_sim.get_value(s.name) \
+                                /(molecules_per_mM_um3 * volumes[i])
         report("States after kappa update")
         report(states)
 
@@ -380,18 +382,36 @@ class Kappa(GeneralizedReaction):
         if (len(_kappa_schemes) == 0):
             gateway = None
 
-    # create a kasim simulator for each  instance
+    # KaSim
     def _create_kappa_sims(self):
+        """
+        for index in self._indices_dict[self._involved_species[0]()]:
+            kappa_sim = kw.KaSimKappaSim(None, True)
+            for s in self._membrane_species:
+                kappa_sim.addTransition("Create {0}".format(s.name))
+            #self._kappa_sims.append(kappa_sim)"""
         """Create the kappa simulations."""
+        global gateway
+
+        ## Create the kappa simulations
+        if not gateway:
+            gateway = SpatialKappa.SpatialKappa()
+
         self._kappa_sims = []   # Will this destroy things properly?
         for index in self._indices_dict[self._involved_species[0]()]:
             report("Creating Kappa Simulation in index %d" % (index))
+
+            """ kappa_sim = gateway.kappa_sim(self._time_units, verbose) """
+
             kappa_sim = kw.KaSimKappaSim(None, True)
             try:
+                """ SpatialKappa """
+                """ kappa_sim.loadFile(self._kappa_file) """
+
                 kappa_sim.load_file(self._kappa_file)
-            except Exception as e:
-                kasim_err = re.sub(r'Exception: ', r'', str(e.message))
-                errstr = 'Error in kappa file %s: %s' % (self._kappa_file, kasim_err)
+            except Py4JJavaError as e:
+                java_err = re.sub(r'java.lang.IllegalStateException: ', r'', str(e.java_exception))
+                errstr = 'Error in kappa file %s: %s' % (self._kappa_file, java_err)
                 raise RuntimeError(errstr)
                 
             ## Set up transitions to create membrane species in Kappa
@@ -399,30 +419,40 @@ class Kappa(GeneralizedReaction):
             ## corresponding to the membrane species
             for s in self._membrane_species:
                 ## Get description of agent
-                agent = {u'ca': {u'x': {}}}
-                link_names = agent[s.name].keys()
+                """ SpatialKappa """
+                """ agent = kappa_sim.getAgentMap(s.name)   # {u'ca':{u'x':{}}} """
+
+                agent = {u'ca':{u'x':{}}}
+
+                link_names = agent[s.name].keys()       # [u'x']
                 if (len(link_names) > 1):
                     errstr = 'Error in kappa file %s: Agent %s has more than one site' % (self._kappa_file, s.name)
                     raise RuntimeError()
-                
-                link_name = link_names[0]
-                
-                ## Add transition to create 
-                #kappa_sim.addTransition('Create %s' % (s.name), {}, agent, 0.0)
-                kappa_sim.add_transition("Create {0}".format(s.name), "{0} -> {1}".format("", "ca(x)"), "1".format(s.name))
-                kappa_sim.add_variable_map("\'Create_{0}\'".format(s.name), "0.0")
-                kappa_sim.update_variable_value("\'Create_{0}\'".format(s.name), "0.0")
-                kappa_sim.add_observation("\'Obs_Create_{0}\'".format(s.name), "\'Create_{0}\'".format(s.name))
+
+                """ SpatialKappa """
+                """ link_name = link_names[0]               # u'x' """
+
+                link_name = 'x'
+
+                ## Add transition to create
+                """ SpatialKappa """
+                """ kappa_sim.addTransition('Create %s' % (s.name), {}, agent, 0.0) """
+
+                kappa_sim.add_transition("Create {0}".format(s.name), "{0} -> {1}".format("", "ca(x)"), 0.0)
 
                 ## Add variable to measure total species
-                #kappa_sim.addVariableMap('Total %s' % (s.name), {s.name: {link_name: {'l': '?'}}})
-                kappa_sim.add_variable_map("\'Total_{0}\'".format(s.name), "|{0}({1}?)|".format(s.name, link_name))
-                kappa_sim.add_observation("\'Obs_Total_{0}\'".format(s.name), "\'Total_{0}\'".format(s.name))
+                """ SpatialKappa """
+                """ kappa_sim.addVariableMap('Total %s' % (s.name), {s.name: {link_name: {'l': '?'}}}) """
+
+                kappa_sim.add_variable_map("Total {0}".format(s.name), "{0}({1}?)".format(s.name, link_name))
+                kappa_sim.add_observation_map("Total {0}".format(s.name), "{0}({1}?)".format(s.name, link_name))
 
                 ## Add observation variable
-                #kappa_sim.addVariableMap('%s' % (s.name), {s.name: {}})
-                kappa_sim.add_variable_map("\'Init_{0}\'".format(s.name), "|{0}()|".format(s.name))
-                kappa_sim.add_observation("\'Obs_Init_{0}\'".format(s.name), "\'Init_{0}\'".format(s.name))
+                """ SpatialKappa """
+                """ kappa_sim.addVariableMap('%s' % (s.name), {s.name: {}}) """
+
+                kappa_sim.add_variable_map("{0}".format(s.name), "{0}()".format(s.name))
+                kappa_sim.add_observation_map("{0}".format(s.name), "{0}()".format(s.name))
 
             self._kappa_sims.append(kappa_sim)
             ## TODO: Should we check if we are inserting two kappa schemes
@@ -440,6 +470,9 @@ class Kappa(GeneralizedReaction):
 
         """
         for kappa_sim in self._kappa_sims:
+            """ SpatialKappa """
+            """ kappa_sim.setVariable(float(value), variable) """
+
             kappa_sim.update_variable_value(variable, float(value))
 
     def run_free(self, t_run):
@@ -462,8 +495,16 @@ class Kappa(GeneralizedReaction):
             #         ## report("Setting %s flux[%d] to b[%d]*NA*vol[%d] = %f*%f*%f = %f" % (s.name, i, i, i,  b[i], molecules_per_mM_um3, volumes[i], flux))
 
             # print(k)
+
+            # KaSim
             for kappa_sim in k._kappa_sims:
-                kappa_sim.runForTime(float(t_run), True)
+                """ SpatialKappa """
+                """ kappa_sim.runForTime(float(t_run), True) """
+
+                kappa_sim.run_for_time(float(t_run))
+
+            # for kappa_sim in k._kappa_sims:
+            #    kappa_sim.run_for_time(float(t_run))
 
     ## Overridden functions
     def re_init(self):
@@ -483,21 +524,22 @@ class Kappa(GeneralizedReaction):
                     nions = round(states[i] \
                                   * molecules_per_mM_um3 * volumes[i])
                     ## print "Species ", s.name, " conc ", states[i], " nions ", nions
-                    kappa_sim.set_agent_initial_value(s.name, nions)
-                    kappa_sim.initialize_params()
-                    """try:
-                        t_kappa = kappa_sim.getTime()
-                        kappa_sim.getVariable(s.name)
-                    except:
-                        raise NameError('There is no observable or variable in %s called %s; add a line like this:\n%%obs: \'%s\' <complex definition> ' % (self._kappa_file, s.name, s.name))
-                    if kappa_sim.isAgent(s.name):
-                        try:
-                            report("Trying to set initial value of " + s.name)
-                            # init agent values
-                            kappa_sim.setAgentInitialValue(s.name, nions)
-                        except Py4JJavaError as e:
-                            raise NameError('Error setting initial value of agent %s to %d\n%s' % (s.name, nions,  str(e.java_exception)))
-                            """
+                    #try:
+                    #    """ SpatialKappa """
+                    #    """ kappa_sim.getVariable(s.name) """
+                    test = 0
+                    #    kappa_sim.get_value(s.name)
+                    #except:
+                    #    raise NameError('There is no observable or variable in %s called %s; add a line like this:\n%%obs: \'%s\' <complex definition> ' % (self._kappa_file, s.name, s.name))
+                    #if kappa_sim.isAgent(s.name):
+                    #    try:
+                    #        report("Trying to set initial value of " + s.name)
+                    #        """ SpatialKappa """
+                    #        """ kappa_sim.setAgentInitialValue(s.name, nions) """
+
+                    #        kappa_sim.update_variable_value(s.name, nions)
+                    #    except Py4JJavaError as e:
+                    #        raise NameError('Error setting initial value of agent %s to %d\n%s' % (s.name, nions,  str(e.java_exception)))
 
     def _evaluate(self, states):
         """This does nothing in the KappaNEURON class"""
