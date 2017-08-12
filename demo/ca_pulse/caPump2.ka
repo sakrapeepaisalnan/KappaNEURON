@@ -8,7 +8,7 @@
 %var: 'vol' 1
 # Avagadro's constant
 %var: 'NA'  6.02205E23
-# Concentration of one agent in the volume in mM 
+# Concentration cof one agent in the volume in mM
 %var: 'agconc' 1E18/('NA' * 'vol')
 
 # Rate constants in /mM-ms or /ms, depending on the number of reactants
@@ -27,3 +27,6 @@
 %obs: 'P-Ca' ca(x!1), P(x!1)
 %obs: 'P' P(x)
 
+%var: 'repeat_it' 1
+%var: 'time_stop' 1
+%mod: alarm 0.001 do $STOP repeat 'repeat_it' = 1
