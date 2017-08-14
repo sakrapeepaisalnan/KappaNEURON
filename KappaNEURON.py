@@ -112,7 +112,7 @@ def _run_kappa_continuous(states, b, dt):
                         legend, time_series = kappa_sim.get_value_by_time(nrr.h.t, "Obs_Total_{0}".format(s.name))
                         try:
                             Stot0[s.name][i] = time_series[0][1]
-                            print Stot0
+                            #print Stot0
                         except Exception as e:
                             print e.message
                             legend, time_series = kappa_sim.get_value_by_time(nrr.h.t, "Obs_Total_{0}".format(s.name))
@@ -483,8 +483,10 @@ class Kappa(GeneralizedReaction):
                     nions = round(states[i] \
                                   * molecules_per_mM_um3 * volumes[i])
                     ## print "Species ", s.name, " conc ", states[i], " nions ", nions
-                    kappa_sim.set_agent_initial_value(s.name, nions)
+                    #kappa_sim.set_agent_initial_value(s.name, nions)
                     kappa_sim.initialize_params()
+                    kappa_sim.set_agent_initial_value(s.name, nions)
+                    kappa_sim.add_agent_value("{0}()".format(s.name), nions)
                     """try:
                         t_kappa = kappa_sim.getTime()
                         kappa_sim.getVariable(s.name)
