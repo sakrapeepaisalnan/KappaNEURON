@@ -137,7 +137,7 @@ def _run_kappa_continuous(states, b, dt):
                 for sptr in f._sources:
                     s = sptr()._species()
                     for kappa_sim, i in zip(k._kappa_sims, k._indices_dict[s]):
-                        legend, time_series = kappa_sim.get_value_by_time(nrr.h.t,
+                        legend, time_series = kappa_sim.get_value_by_time(time,
                                                                           "Obs_Total_{0}".format(s.name))
                         Stot1 = time_series[0][1]
                         ## For ions, compute the current
