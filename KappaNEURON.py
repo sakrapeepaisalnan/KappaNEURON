@@ -128,8 +128,8 @@ def _run_kappa_continuous(states, b, dt):
                 #kappa_sim.runForTime(dt, False)
                 time = nrr.h.t+dt
                 kappa_sim.run_until_time(time)
-                #t_kappa = kappa_sim.get_time()
-                report("kappa time now %f" % (time))
+                t_kappa = kappa_sim.get_time()
+                report("kappa time now %f %f" % (t_kappa, time))
 
             ## Recording total ending value of each membrane species
             for f in k._kappa_fluxes:
@@ -409,8 +409,9 @@ class Kappa(GeneralizedReaction):
                 
                 ## Add transition to create 
                 #kappa_sim.addTransition('Create %s' % (s.name), {}, agent, 0.0)
-                kappa_sim.add_transition("Create {0}".format(s.name), "{0} -> {1}".format("", "ca(x)"), "1".format(s.name))
                 kappa_sim.add_variable_map("\'Create_{0}\'".format(s.name), "0.0")
+                kappa_sim.add_transition("Create {0}".format(s.name), "{0} -> {1}".format("", "ca(x)"), "Create_{0}".format(s.name))
+
                 kappa_sim.update_variable_value("\'Create_{0}\'".format(s.name), "0.0")
                 kappa_sim.add_observation("\'Obs_Create_{0}\'".format(s.name), "\'Create_{0}\'".format(s.name))
 
