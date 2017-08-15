@@ -171,7 +171,7 @@ def _run_kappa_continuous(states, b, dt):
                 for kappa_sim, i in zip(k._kappa_sims, k._indices_dict[s]):
                     ## Update concentration
                     legend, time_series = kappa_sim.get_value_by_time(nrr.h.t,
-                                                                      "{0}".format(s.name))
+                                                                      "Obs_Free_{0}".format(s.name))
                     end_value = time_series[0][1]
                     states[i] = end_value \
                                 /(molecules_per_mM_um3 * volumes[i])
@@ -398,6 +398,14 @@ class Kappa(GeneralizedReaction):
             ## Set up transitions to create membrane species in Kappa
             ## simulation and measure the total amount of the agent
             ## corresponding to the membrane species
+            print self._involved_species[0]
+            print self._membrane_species
+            for sptr in self._involved_species:
+                s = sptr()
+
+                kappa_sim.add_variable_map("\'Free_{0}\'".format(s.name), "|{0}(x)|".format(s.name))
+                kappa_sim.add_observation("\'Obs_Free_{0}\'".format(s.name), "\'Free_{0}\'".format(s.name))
+
             for s in self._membrane_species:
                 ## Get description of agent
                 agent = {u'ca': {u'x': {}}}
@@ -413,7 +421,7 @@ class Kappa(GeneralizedReaction):
                 kappa_sim.add_variable_map("\'Create_{0}\'".format(s.name), "0.0")
                 kappa_sim.add_transition("Create {0}".format(s.name), "{0} -> {1}".format("", "ca(x)"), "Create_{0}".format(s.name))
 
-                kappa_sim.update_variable_value("\'Create_{0}\'".format(s.name), "0.0")
+                #kappa_sim.update_variable_value("\'Create_{0}\'".format(s.name), "0.0")
                 kappa_sim.add_observation("\'Obs_Create_{0}\'".format(s.name), "\'Create_{0}\'".format(s.name))
 
                 ## Add variable to measure total species
@@ -423,8 +431,8 @@ class Kappa(GeneralizedReaction):
 
                 ## Add observation variable
                 #kappa_sim.addVariableMap('%s' % (s.name), {s.name: {}})
-                kappa_sim.add_variable_map("\'Init_{0}\'".format(s.name), "|{0}()|".format(s.name))
-                kappa_sim.add_observation("\'Obs_Init_{0}\'".format(s.name), "\'Init_{0}\'".format(s.name))
+                #kappa_sim.add_variable_map("\'Free_{0}\'".format(s.name), "|{0}()|".format(s.name))
+                #kappa_sim.add_observation("\'Obs_Free_{0}\'".format(s.name), "\'Free_{0}\'".format(s.name))
 
             self._kappa_sims.append(kappa_sim)
             ## TODO: Should we check if we are inserting two kappa schemes
