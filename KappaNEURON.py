@@ -139,6 +139,7 @@ def _run_kappa_continuous(states, b, dt):
                     for kappa_sim, i in zip(k._kappa_sims, k._indices_dict[s]):
                         legend, time_series = kappa_sim.get_value_by_time(time,
                                                                           "Obs_Total_{0}".format(s.name))
+                        print "time is {0}".format(time)
                         Stot1 = time_series[0][1]
                         ## For ions, compute the current
                         #Stot1 = kappa_sim.getVariable('Total %s' % (s.name))
@@ -485,7 +486,7 @@ class Kappa(GeneralizedReaction):
                                   * molecules_per_mM_um3 * volumes[i])
                     ## print "Species ", s.name, " conc ", states[i], " nions ", nions
                     #kappa_sim.set_agent_initial_value(s.name, nions)
-                    kappa_sim.initialize_params()
+                    kappa_sim.initialize_params(nrr.h.dt)
                     kappa_sim.set_agent_initial_value(s.name, nions)
                     kappa_sim.add_agent_value("{0}()".format(s.name), nions)
                     """try:
